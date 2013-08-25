@@ -1,7 +1,27 @@
 <?php
 
 
-class MyDB extends SQLite3
+$dir = realpath(dirname(__FILE__));
+
+if (!file_exists("$dir/SpeedDial2.sqlite")) {
+
+	if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
+		$output = shell_exec("cmd /c \"$dir\\copy.bat\"");
+
+		if (!file_exists("$dir/SpeedDial2.sqlite")) {
+			die("Unable to load SpeedDial2.sqlite using copy.bat.");
+		}
+	} else {
+		die("SpeedDial2.sqlite not present.");
+	}
+
+}
+
+
+require_once('Colors.class.inc');
+
+
+class SpeedDial2Db extends SQLite3
 {
 	function __construct()
 	{
@@ -9,92 +29,12 @@ class MyDB extends SQLite3
 	}
 }
 
-function rgbToHsl( $r, $g, $b ) {
-	$oldR = $r;
-	$oldG = $g;
-	$oldB = $b;
 
-	$r /= 255;
-	$g /= 255;
-	$b /= 255;
+$db = new SpeedDial2Db();
 
-	$max = max( $r, $g, $b );
-	$min = min( $r, $g, $b );
-
-	$h;
-	$s;
-	$l = ( $max + $min ) / 2;
-	$d = $max - $min;
-
-	if( $d == 0 ){
-		$h = $s = 0; // achromatic
-	} else {
-		$s = $d / ( 1 - abs( 2 * $l - 1 ) );
-
-		switch( $max ){
-			case $r:
-				$h = 60 * fmod( ( ( $g - $b ) / $d ), 6 );
-				break;
-
-			case $g:
-				$h = 60 * ( ( $b - $r ) / $d + 2 );
-				break;
-
-			case $b:
-				$h = 60 * ( ( $r - $g ) / $d + 4 );
-				break;
-		}
-	}
-
-	return array( $h, $s, $l );
-}
-function hslToRgb( $h, $s, $l ){
-	$r;
-	$g;
-	$b;
-
-	$c = ( 1 - abs( 2 * $l - 1 ) ) * $s;
-	$x = $c * ( 1 - abs( fmod( ( $h / 60 ), 2 ) - 1 ) );
-	$m = $l - ( $c / 2 );
-
-	if ( $h < 60 ) {
-		$r = $c;
-		$g = $x;
-		$b = 0;
-	} else if ( $h < 120 ) {
-		$r = $x;
-		$g = $c;
-		$b = 0;
-	} else if ( $h < 180 ) {
-		$r = 0;
-		$g = $c;
-		$b = $x;
-	} else if ( $h < 240 ) {
-		$r = 0;
-		$g = $x;
-		$b = $c;
-	} else if ( $h < 300 ) {
-		$r = $x;
-		$g = 0;
-		$b = $c;
-	} else {
-		$r = $c;
-		$g = 0;
-		$b = $x;
-	}
-
-	$r = ( $r + $m ) * 255;
-	$g = ( $g + $m ) * 255;
-	$b = ( $b + $m  ) * 255;
-
-	return array( $r, $g, $b );
-}
-
-
-
-$db = new MyDB();
-if(!$db){
+if (!$db) {
 	echo $db->lastErrorMsg();
+	exit;
 } else {
 	//echo "Opened database successfully\n";
 }
@@ -103,15 +43,16 @@ if(!$db){
 
 ?><!DOCTYPE html>
 <head>
+	<meta name="viewport" content="width=device-width; user-scalable=no" />
+	<title>Speed Reader</title>
 	<style type="text/css">
 
 		body {
 			background: #343434;
 			color: #fff;
 			margin: 0;
-
 		}
-
+		
 		a.thumbnail_link {
 			display: block;
 			width: 319px;
@@ -129,7 +70,7 @@ if(!$db){
 		a.thumbnail_link:hover {
 			border: 2px solid #fff;
 		}
-
+		
 		div.group {
 			clear: both;
 			padding: 24px 0;
@@ -143,10 +84,16 @@ if(!$db){
 			font-family: sans-serif; font-weight: bold; font-size: 20px;
 		}
 
-		/*a.thumbnail_link + div.group {
-			clear: both;
-		}*/
-
+		@media (max-width:500px) {
+			div.group {
+				padding: 8px 0;
+			}
+			
+			div.group > div {
+				padding: 3px 7px;
+				font-family: sans-serif; font-weight: bold; font-size: 14px;
+			}
+		}
 	</style>
 </head>
 <body>
@@ -154,7 +101,10 @@ if(!$db){
 
 
 
-$sql = 'SELECT * from bookmarks left join groups on bookmarks.idgroup = groups.id ORDER BY groups.position, idgroup, bookmarks.position;';
+$sql = "SELECT *
+		from bookmarks
+		left join groups on bookmarks.idgroup = groups.id
+		order by groups.position, idgroup, bookmarks.position;";
 
 $LinksHTML = '';
 
@@ -186,9 +136,9 @@ while($row = $ret->fetchArray(SQLITE3_ASSOC) ){
 		// Ensure 6 digits
 		if (strlen($groupColor) == 3) {
 			$groupColor6 =
-				 $groupColor[0].$groupColor[0]
-				.$groupColor[1].$groupColor[1]
-				.$groupColor[2].$groupColor[2];
+				$groupColor[0].$groupColor[0].
+				$groupColor[1].$groupColor[1].
+				$groupColor[2].$groupColor[2];
 			if (strlen($groupColor6) != 6) {
 				print("Fatal error! Cannot convert '$groupColor' to 6-digit color ($groupColor6)");
 				exit;
@@ -202,10 +152,10 @@ while($row = $ret->fetchArray(SQLITE3_ASSOC) ){
 		$decB = hexdec(substr($groupColor6, 4, 2));
 
 
-		list($decH, $decS, $decL) = rgbToHsl($decR, $decG, $decB);
+		list($decH, $decS, $decL) = Colors::rgbToHsl($decR, $decG, $decB);
 
 		$decL *= .60; // Half velocity (brightness)
-		list($decRNew, $decGNew, $decBNew) = hslToRgb($decH, $decS, $decL);
+		list($decRNew, $decGNew, $decBNew) = Colors::hslToRgb($decH, $decS, $decL);
 
 		$hexRNew = dechex($decRNew);
 		$hexGNew = dechex($decGNew);
@@ -223,6 +173,8 @@ while($row = $ret->fetchArray(SQLITE3_ASSOC) ){
 			<div
 				style="
 					background: -moz-linear-gradient(center top, #'.$groupColor.', #'.$groupColorDarker.');
+					background: linear-gradient(center top, #'.$groupColor.', #'.$groupColorDarker.');
+					background: -webkit-gradient(linear, center top, center bottom, from(#'.$groupColor.'), to(#'.$groupColorDarker.'));
 					border: 2px solid #'.$groupColor.';
 				"
 			>
@@ -244,7 +196,7 @@ $db->close();
 
 ?>
 
-<div style="margin: 0 16px">
+<div style="margin: 0 8px; opacity: 0" class="hidden_container">
 	<?=$LinksHTML ?>
 	<div style="clear: both"></div>
 </div>
@@ -252,36 +204,36 @@ $db->close();
 
 <script src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
 <script type="text/javascript">
+	
+	$(window).resize(function () {
+		
+		var viewport = {
+			width  : $(window).width(),
+			height : $(window).height()
+		};
+
+		var origWidth = 319
+		var origHeight = 179
+		var hMargin = 8;
+		var thumbsPerRow = Math.ceil(viewport.width / (origWidth/2))
+		if (thumbsPerRow > 5) thumbsPerRow = 5
+
+		var newWidth = (viewport.width - thumbsPerRow*4 - hMargin*2) / thumbsPerRow
+		var newHeight = (newWidth / origWidth) * origHeight
+
+		$('a.thumbnail_link').css({
+			width: newWidth + 'px',
+			height: newHeight + 'px'
+		})
+
+
+	})
 
 	$(document).ready(function() {
 
-		$(window).resize(function () {
-
-			var origWidth = 319
-			var origHeight = 179
-			var hMargin = 16
-
-			//window.innerWidth = origWidth*5*x + margin*5*x
-			//window.innerWidth = x(5*origWidth + 5*margin)
-
-			//$(document.body).width() - 5(20) = 5*origWidth
-			//($(document.body).width() - 5(20))/5 = origWidth
-			var newWidth = ($(document.body).width() - 5*4 - hMargin*2)/5
-
-			var newHeight = (newWidth / origWidth) * origHeight
-
-			//var x = $(document.body).width() / (5 * (origWidth + 4))
-			//var scaleFactor = (1 / (origWidth*5 + margin*5)) * window.innerWidth
-
-			$('a.thumbnail_link').css({
-				width: newWidth + 'px',
-				height: newHeight + 'px'
-			})
-
-
-		})
-
 		$(window).resize()
+		
+		$('.hidden_container').css('opacity','1');
 
 	})
 
