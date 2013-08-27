@@ -48,22 +48,32 @@ if (!$db) {
 	<style type="text/css">
 
 		body {
-			background: #343434;
+			background: #124a81;
 			color: #fff;
-			margin: 0;
+			margin: 8px;
 		}
 		
 		a.thumbnail_link {
-			display: block;
-			width: 319px;
-			height: 179px;
-			float: left;
+			display: inline-block;
+			
+			margin: 10px 10px;
+			
 			border: 2px solid #000;
-			background-size: contain;
 
 			text-decoration: none;
-			color: transparent;
-			cursor: pointer;
+			position: relative;
+
+		}
+		
+		a.thumbnail_link > img {
+		display: block;
+			border: 0;
+			width: 100%;
+			height: 100%;
+			position: absolute;
+			left: 0;
+			top: 0;
+			
 
 		}
 
@@ -183,20 +193,21 @@ while($row = $ret->fetchArray(SQLITE3_ASSOC) ){
 		</div>';
 	}
 
-	$LinksHTML .= '
-	<a
-		class="thumbnail_link"
-		href="'.$url.'" style="background-image: url('.$thumbnail.');"
-		title="'.$title.'"
-	>&nbsp;</a>';
-
+	
+	$LinksHTML .= 
+	'<a 
+		href="'.$url.'"
+		class="thumbnail_link" title="'.$title.'"
+	><img
+		src="'.$thumbnail.'"
+		title="'.$title.'" /></a>';
 }
 
 $db->close();
 
 ?>
 
-<div style="margin: 0 8px; opacity: 0" class="hidden_container">
+<div style="margin: 0 auto;">
 	<?=$LinksHTML ?>
 	<div style="clear: both"></div>
 </div>
@@ -220,6 +231,11 @@ $db->close();
 
 		var newWidth = (viewport.width - thumbsPerRow*4 - hMargin*2) / thumbsPerRow
 		var newHeight = (newWidth / origWidth) * origHeight
+		
+		if (newWidth > origWidth || newHeight > origHeight) {
+			newWidth = origWidth;
+			newHeight = origHeight;
+		}
 
 		$('a.thumbnail_link').css({
 			width: newWidth + 'px',
@@ -232,8 +248,6 @@ $db->close();
 	$(document).ready(function() {
 
 		$(window).resize()
-		
-		$('.hidden_container').css('opacity','1');
 
 	})
 
