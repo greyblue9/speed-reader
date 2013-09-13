@@ -1,0 +1,297 @@
+<?php
+
+
+
+$windows = (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN');;
+header("X-DB-OS", PHP_OS);
+header("X-DB-OS-IsWindows", PHP_OS? "Yes":"No");
+$filename = 'SpeedDial2.sqlite';
+$downloadFromSugarSync = false;
+
+
+$dir = realpath(dirname(__FILE__));
+if (!file_exists("$dir/$filename") || filesize("$dir/$filename") < 1000) {
+	// no valid DB file found in script folder	
+	if ($windows) {
+		// if Windows, copy it here using copy.bat
+		$output = shell_exec("cmd /c \"$dir\\copy.bat\"");
+		header("X-DB-Copy-Bat-Output: ".str_replace("\r\n", "\n", $output));
+
+		if (!file_exists("$dir/$filename") || filesize("$dir/$filename") < 1000) {
+			// failed to copy it here
+			header("X-DB-From: Windows / Not found, copy.bat failed, attempting SugarSync");
+			$downloadFromSugarSync = true;
+		} else {
+			// copied successfully into script folder
+			header("X-DB-From: Windows / File produced in script folder by running copy.bat");
+		}
+	} else {
+		// online, file not found in script folder
+		header("X-DB-From: SugarSync");
+		$downloadFromSugarSync = true;
+	}
+
+} else {
+	// file found in script folder
+	header("X-DB-From: Script folder");
+}
+
+
+if ($downloadFromSugarSync) {
+	$opts = array(
+	  'http'=>array(
+		'method'=>"GET",
+		'header'=>"Accept-language: en\r\n" .
+				  "Cookie: JSESSIONID=B6A6249FD4BB58567FC12749206CC31C.happ03; NSC_wt_bqq.tvhbstzod.dpn_443=ffffffff090d9c6845525d5f4f58455e445a4a42378b\r\n"
+	  )
+	);
+	$context = stream_context_create($opts);
+	// Open the file using the HTTP headers set above
+	$sql_db_file = file_get_contents('https://app.sugarsync.com/wf/D2570614_85823891_64086/getfile/30378346_19562/SpeedDial2.sqlite?browserOS=Windows HTTP/1.1', false, $context);
+	
+	$filename = "SpeedDial2_fromSugarSync_".time().".sqlite";
+	file_put_contents($filename, $sql_db_file);
+}
+
+
+require_once('Colors.class.inc');
+
+
+class SpeedDial2Db extends SQLite3
+{
+	function __construct($file)
+	{
+		$this->open($file);
+	}
+}
+
+
+$db = new SpeedDial2Db($filename);
+
+if (!$db) {
+	echo $db->lastErrorMsg();
+	exit;
+} else {
+	header("X-DB-Error: {$db->lastErrorMsg()}");
+}
+
+
+
+?><!DOCTYPE html>
+<head>
+	<meta name="viewport" content="width=device-width; user-scalable=no" />
+	<title>Speed Reader</title>
+	<style type="text/css">
+
+		body {
+			background: #124a81;
+			color: #fff;
+			margin: 8px;
+		}
+		
+		a.thumbnail_link {
+			display: inline-block;
+			
+			margin: 7px 7px 0 0;
+			
+			border: 2px solid #000;
+
+			text-decoration: none;
+			position: relative;
+
+		}
+		
+		a.thumbnail_link > img {
+			display: block;
+			border: 0;
+			width: 100%;
+			height: 100%;
+			position: absolute;
+			left: 0;
+			top: 0;
+			
+
+		}
+
+		a.thumbnail_link:hover {
+			border: 2px solid #fff;
+		}
+		
+		div.group {
+			clear: both;
+			padding: 16px 0;
+			text-align: center;
+		}
+
+		div.group > div {
+			padding: 7px 14px;
+			background: #000;
+			border: 2px solid #aaa;
+			font-family: sans-serif; font-weight: bold; font-size: 20px;
+		}
+
+		@media (max-width:500px) {
+			div.group {
+				padding: 8px 0;
+			}
+			
+			div.group > div {
+				padding: 3px 7px;
+				font-family: sans-serif; font-weight: bold; font-size: 14px;
+			}
+		}
+		
+		.wrapper {
+			margin: 0 auto;
+		}
+	</style>
+</head>
+<body>
+<?php
+
+
+
+$sql = "SELECT *
+		from bookmarks
+		left join groups on bookmarks.idgroup = groups.id
+		order by groups.position, idgroup, bookmarks.position;";
+
+$LinksHTML = '';
+
+$ret = $db->query($sql);
+
+$lastIdGroup = -1;
+while($row = $ret->fetchArray(SQLITE3_ASSOC) ){
+	$title = $row['title'];
+	$url = $row['url'];
+	$thumbnail = $row['thumbnail'];
+
+	if ($lastIdGroup != $row['idgroup'])
+	{
+		$lastIdGroup = $row['idgroup'];
+
+		$gSql = "Select * from groups where groups.id == ".$row['idgroup'];
+		$gRes = $db->query($gSql);
+
+		$gRow = $gRes->fetchArray(SQLITE3_ASSOC);
+		if ($gRow) {
+			$groupTitle = $gRow['title'];
+			$groupColor = $gRow['color'];
+		} else {
+			$groupTitle = 'Home';
+			$groupColor = 'aaa';
+		}
+
+		// $groupColor is 3 or 6 HEX digits, no leading #
+		// Ensure 6 digits
+		if (strlen($groupColor) == 3) {
+			$groupColor6 =
+				$groupColor[0].$groupColor[0].
+				$groupColor[1].$groupColor[1].
+				$groupColor[2].$groupColor[2];
+			if (strlen($groupColor6) != 6) {
+				print("Fatal error! Cannot convert '$groupColor' to 6-digit color ($groupColor6)");
+				exit;
+			}
+		} else if (strlen($groupColor) == 6) {
+			$groupColor6 = $groupColor;
+		}
+
+		$decR = hexdec(substr($groupColor6, 0, 2));
+		$decG = hexdec(substr($groupColor6, 2, 2));
+		$decB = hexdec(substr($groupColor6, 4, 2));
+
+
+		list($decH, $decS, $decL) = Colors::rgbToHsl($decR, $decG, $decB);
+
+		$decL *= .60; // Half velocity (brightness)
+		list($decRNew, $decGNew, $decBNew) = Colors::hslToRgb($decH, $decS, $decL);
+
+		$hexRNew = dechex($decRNew);
+		$hexGNew = dechex($decGNew);
+		$hexBNew = dechex($decBNew);
+
+
+		$groupColorDarker =
+			 str_pad($hexRNew, 2, "0", STR_PAD_LEFT).
+			 str_pad($hexGNew, 2, "0", STR_PAD_LEFT).
+			 str_pad($hexBNew, 2, "0", STR_PAD_LEFT);
+
+
+		$LinksHTML .= '
+		<div class="group">
+			<div
+				style="
+					background: -moz-linear-gradient(center top, #'.$groupColor.', #'.$groupColorDarker.');
+					background: linear-gradient(center top, #'.$groupColor.', #'.$groupColorDarker.');
+					background: -webkit-gradient(linear, center top, center bottom, from(#'.$groupColor.'), to(#'.$groupColorDarker.'));
+					border: 2px solid #'.$groupColor.';
+				"
+			>
+				'.$groupTitle.'
+			</div>
+		</div>';
+	}
+
+	
+	$LinksHTML .= 
+	'<a 
+		href="'.$url.'"
+		class="thumbnail_link" title="'.$title.'"
+	><img
+		src="'.$thumbnail.'"
+		title="'.$title.'" /></a>';
+}
+
+$db->close();
+
+?>
+
+<div class="wrapper">
+	<?=$LinksHTML ?>
+	<div style="clear: both"></div>
+</div>
+<div style="overflow: hidden; height: 24px">&nbsp;</div>
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
+<script type="text/javascript">
+	
+	$(window).resize(function () {
+		
+		var viewport = {
+			width  : window.innerWidth,
+			height : window.innerHeight
+		};
+
+		var origWidth = 319
+		var origHeight = 179
+		var hMargin = 8;
+		var thumbsPerRow = Math.ceil(viewport.width * 5 / 1000)
+
+		var newWidth = (viewport.width - thumbsPerRow*7*2 - thumbsPerRow*2 - 8*2) / 5
+		var newHeight = (newWidth / origWidth) * origHeight
+		
+		if (newWidth > origWidth || newHeight > origHeight) {
+			newWidth = origWidth;
+			newHeight = origHeight;
+		}
+		
+		
+
+		$('a.thumbnail_link').css({
+			width: newWidth + 'px',
+			height: newHeight + 'px'
+		})
+
+
+	})
+
+	$(document).ready(function() {
+
+		$(window).resize()
+
+	})
+
+</script>
+</body>
+</html>
