@@ -1,13 +1,16 @@
 <?php
 
-
-
 require_once('Colors.class.inc');
+require_once('Auth.class.inc');
 
 
+$speedDial2SyncUrl = 'http://speeddial2.com/sync2/get'
+	.'?username='.Auth::getUsername().
+	'&password='.base64_encode(Auth::getPassword()).
+	'&_='.time();
 
-$time = time();
-$file = file_get_contents("http://speeddial2.com/sync2/get?username=greyblue9&password=RmF1eHBhc3M4OA%3D%3D&_=$time");
+
+$file = file_get_contents($speedDial2SyncUrl);
 $data = json_decode($file, true);
 
 $dials = $data['dials'];
