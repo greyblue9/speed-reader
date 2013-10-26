@@ -19,8 +19,8 @@ $groups[] = array(
 	'id' => "0",
 	'position' => "0",
 	'title' => 'Home',
-	'color' => 'FFFFFF',
-	'text-color' => '000000'
+	'color' => 'ff5537',
+	'text-color' => 'ffffff'
 );
 
 
@@ -58,37 +58,34 @@ foreach ($dials as $dial) {
 	<style type="text/css">
 
 		body {
-			background: #124a81;
-			color: #fff;
+			background: -moz-linear-gradient(center top , #555566 0%, #000000 100%) repeat fixed 0 0 rgba(0, 0, 0, 0);
+			color: #FFFFFF;
 			margin: 8px;
 		}
 		
 		a.thumbnail_link {
-			display: inline-block;
-			
-			margin: 7px 7px 0 0;
-			
 			border: 2px solid #000;
-
-			text-decoration: none;
+			display: inline-block;
+			margin: 7px 7px 0 0;
 			position: relative;
-
+			text-decoration: none;
+			-moz-transition: border-color .75s ease;
 		}
 		
 		a.thumbnail_link > img {
+			border: 0 none;
 			display: block;
-			border: 0;
-			width: 100%;
 			height: 100%;
-			position: absolute;
 			left: 0;
+			position: absolute;
 			top: 0;
-			
-
+			width: 100%;
 		}
-
+		
 		a.thumbnail_link:hover {
-			border: 2px solid #fff;
+			border: 2px solid #ff5353;
+			-moz-transition: border-color .01s ease;
+			box-shadow: 0 0 15px #ff2323;
 		}
 		
 		div.group {
@@ -96,28 +93,33 @@ foreach ($dials as $dial) {
 			padding: 16px 0;
 			text-align: center;
 		}
-
+		
 		div.group > div {
+			background: none repeat scroll 0 0 #000000;
+			border: 2px solid #AAAAAA;
+			font-family: sans-serif;
+			font-size: 20px;
+			font-weight: bold;
 			padding: 7px 14px;
-			background: #000;
-			border: 2px solid #aaa;
-			font-family: sans-serif; font-weight: bold; font-size: 20px;
 		}
-
-		@media (max-width:500px) {
+		
+		@media (max-width: 500px) {
+		
 			div.group {
 				padding: 8px 0;
 			}
-			
 			div.group > div {
+				font-family: sans-serif;
+				font-size: 14px;
+				font-weight: bold;
 				padding: 3px 7px;
-				font-family: sans-serif; font-weight: bold; font-size: 14px;
 			}
 		}
 		
 		.wrapper {
 			margin: 0 auto;
 		}
+		
 	</style>
 </head>
 <body>
