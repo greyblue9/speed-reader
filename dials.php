@@ -62,16 +62,15 @@ foreach ($dials as $dial) {
 			color: #FFFFFF;
 			margin: 8px;
 		}
-		
+
 		a.thumbnail_link {
 			border: 2px solid #000;
 			display: inline-block;
-			margin: 7px 7px 0 0;
 			position: relative;
 			text-decoration: none;
 			-moz-transition: border-color .75s ease;
 		}
-		
+
 		a.thumbnail_link > img {
 			border: 0 none;
 			display: block;
@@ -81,19 +80,19 @@ foreach ($dials as $dial) {
 			top: 0;
 			width: 100%;
 		}
-		
+
 		a.thumbnail_link:hover {
 			border: 2px solid #ff5353;
 			-moz-transition: border-color .01s ease;
 			box-shadow: 0 0 15px #ff2323;
 		}
-		
+
 		div.group {
 			clear: both;
 			padding: 16px 0;
 			text-align: center;
 		}
-		
+
 		div.group > div {
 			background: none repeat scroll 0 0 #000000;
 			border: 2px solid #AAAAAA;
@@ -102,9 +101,9 @@ foreach ($dials as $dial) {
 			font-weight: bold;
 			padding: 7px 14px;
 		}
-		
+
 		@media (max-width: 500px) {
-		
+
 			div.group {
 				padding: 8px 0;
 			}
@@ -115,11 +114,11 @@ foreach ($dials as $dial) {
 				padding: 3px 7px;
 			}
 		}
-		
+
 		.wrapper {
 			margin: 0 auto;
 		}
-		
+
 	</style>
 </head>
 <body>
@@ -174,7 +173,7 @@ foreach ($groups as $group) {
 
 	usort($group['dials'], "sortByPosition");
 	foreach ($group['dials'] as $dial) {
-	
+
 		$url = $dial['url'];
 		$title = $dial['title'];
 		$thumbnail = $dial['thumbnail'];
@@ -183,9 +182,9 @@ foreach ($groups as $group) {
 		'<a href="'.$url.'" class="thumbnail_link" title="'.$title.'">'.
 			'<img src="'.$thumbnail.'" title="'.$title.'" />'.
 		'</a>';
-	
+
 	}// foreach dial
-	
+
 }// foreach group
 
 
@@ -200,32 +199,91 @@ foreach ($groups as $group) {
 
 <script src="//ajax.googleapis.com/ajax/libs/jquery/1.10.2/jquery.min.js"></script>
 <script type="text/javascript">
-	
+
 	$(window).resize(function () {
-		
-		var viewport = {
-			width  : window.innerWidth,
-			height : window.innerHeight
-		};
 
-		var origWidth = 319
-		var origHeight = 179
-		var hMargin = 8;
-		var thumbsPerRow = Math.ceil(viewport.width * 5 / 1000)
+		var $body = $('body');
 
-		var newWidth = (viewport.width - thumbsPerRow*7*2 - thumbsPerRow*2 - 8*2) / 5
-		var newHeight = (newWidth / origWidth) * origHeight
-		
-		if (newWidth > origWidth || newHeight > origHeight) {
-			newWidth = origWidth;
-			newHeight = origHeight;
+		var outerMarginTotal = $body.outerWidth(true) - $body.width();
+		var outerMarginEachSide = Math.floor(outerMarginTotal / 2);
+
+		// All available area, including that available for scrollbars
+		$body.css('overflow', 'hidden');
+		var viewportAll = {
+			width: $body.outerWidth(true), // incl. padding+border
+			height: $body.height() // incl. padding+border
 		}
-		
-		
+
+		// Available area, inside scrollbars (when both present)
+		$body.css('overflow', 'scroll');
+		var viewportInside = {
+			width: $body.outerWidth(true), // incl. padding+border
+			height: $body.height() // incl. padding+border
+		}
+
+		// Assume thumbnail source image sizes are 319x179px
+		var thumbSrcSize = {
+			width: 319,
+			height: 179
+		}
+
+		var thumbHorizSep = outerMarginEachSide;
+		var $renderedThumb = $('a.thumbnail_link:first');
+		var thumbBorderWidthTotal =
+			$renderedThumb.outerWidth(false) // element width with padding, border (but not margin)
+			- $renderedThumb.innerWidth(); // element width with padding (but not border or margin)
+
+		var thumbWidthsByRowCount = {};
+
+		for (var thumbsPerRow=2; thumbsPerRow < 10; thumbsPerRow++) {
+			/*
+			viewportInside.width =
+				thumbNewWidth * thumbsPerRow +
+				thumbBorderWidthTotal * thumbsPerRow +
+				thumbHorizSep * (thumbsPerRow - 1) +
+				outerMarginTotal
+
+			 (viewportInside.width - (thumbBorderWidthTotal * thumbsPerRow) - (thumbHorizSep * (thumbsPerRow - 1)) - (outerMarginTotal)) / thumbsPerRow =
+				 thumbNewWidth
+			 */
+
+			var thumbNewWidth = Math.floor(
+				(viewportInside.width
+					- (thumbBorderWidthTotal * thumbsPerRow)
+					- (thumbHorizSep * (thumbsPerRow - 1))
+					- (outerMarginTotal)
+				) / thumbsPerRow
+			);
+
+			thumbWidthsByRowCount[thumbsPerRow] = thumbNewWidth;
+		}
+
+		var selThumbsPerRow = 5;
+		var thumbWidth = thumbWidthsByRowCount[selThumbsPerRow];
+		if (thumbWidth >= thumbSrcSize.width) thumbWidth = thumbSrcSize.width;
+
+		var thumbHeight = (thumbSrcSize.height / thumbSrcSize.width) * thumbWidth;
 
 		$('a.thumbnail_link').css({
-			width: newWidth + 'px',
-			height: newHeight + 'px'
+			width: thumbWidth + 'px',
+			height: thumbHeight + 'px',
+			margin: '0'
+		})
+
+
+		var idxGroupOffset = 0;
+		$('a.thumbnail_link').each(function(idx) {
+			var $a = $(this);
+
+			if ($a.prev('.group').length) {
+				idxGroupOffset = idx
+			}
+
+			idx -= idxGroupOffset;
+
+			if (idx % selThumbsPerRow != 0) {
+				$a.css('margin-left', thumbHorizSep+'px');
+			}
 		})
 
 
