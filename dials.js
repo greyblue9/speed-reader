@@ -1,4 +1,46 @@
 
+
+var SpeedReader = {
+
+	Viewport: {
+		EntireWebArea: {width: null, height: null},
+		MinWebArea: {width: null, height: null},
+		WebArea: {width: null, height: null},
+
+		OuterMarginWidth: null, // set by CSS file
+
+
+		recalculate: function() {
+			var $body = $('body');
+
+			// All available area, including that available for scrollbars
+			$body.css('overflow', 'hidden');
+			this.EntireWebArea.width = $body.outerWidth(true); // incl. padding+border
+			this.EntireWebArea.height = $body.height(); // incl. padding+border
+
+			// Available area, inside scrollbars (when both present)
+			$body.css('overflow', 'scroll');
+			this.MinWebArea.width = $body.outerWidth(true); // incl. padding+border
+			this.MinWebArea.height = $body.height(); // incl. padding+border
+
+			// Set to auto for final use/rendering
+			$body.css('overflow', 'auto');
+			this.WebArea.width = $body.outerWidth(true); // incl. padding+border
+			this.WebArea.height = $body.height(); // incl. padding+border
+
+			var outerMarginTotal = $body.outerWidth(true) - $body.width();
+			this.OuterMarginWidth = Math.floor(outerMarginTotal / 2);
+		}
+	},
+
+	Thumbnails: {
+		SourceSize: {width: 319, height: 179}
+	}
+
+};
+
+
+
 $(document).ready(function () {
 
 	$(window).resize()
@@ -8,74 +50,51 @@ $(document).ready(function () {
 
 $(window).resize(function () {
 
-	var $body = $('body');
+	SpeedReader.Viewport.recalculate();
 
-	var outerMarginTotal = $body.outerWidth(true) - $body.width();
-	var outerMarginEachSide = Math.floor(outerMarginTotal / 2);
+	var thumbHorizSep = SpeedReader.Viewport.OuterMarginWidth;
+	var $firstRenderedThumb = $('a.thumbnail_link:first');
 
-	// All available area, including that available for scrollbars
-	$body.css('overflow', 'hidden');
-	var viewportAll = {
-		width: $body.outerWidth(true), // incl. padding+border
-		height: $body.height() // incl. padding+border
-	}
-
-	// Available area, inside scrollbars (when both present)
-	$body.css('overflow', 'scroll');
-	var viewportInside = {
-		width: $body.outerWidth(true), // incl. padding+border
-		height: $body.height() // incl. padding+border
-	}
-
-	// Assume thumbnail source image sizes are 319x179px
-	var thumbSrcSize = {
-		width: 319,
-		height: 179
-	}
-
-	var thumbHorizSep = outerMarginEachSide;
-	var $renderedThumb = $('a.thumbnail_link:first');
 	var thumbBorderWidthTotal =
-		$renderedThumb.outerWidth(false) // element width with padding, border (but not margin)
-			- $renderedThumb.innerWidth(); // element width with padding (but not border or margin)
+		$firstRenderedThumb.outerWidth(false) // element width with padding, border (but not margin)
+		- $firstRenderedThumb.innerWidth(); // element width with padding (but not border or margin)
 
 	var thumbWidthsByRowCount = {};
 
 	for (var thumbsPerRow = 2; thumbsPerRow < 10; thumbsPerRow++) {
 
-		/*
+		// Calculate thumbnail width when this many thumbnails are displayed per row
 
-			Calculation:
-			------------
+		/**
+			Calculation as equation:
 
 			viewportInside.width =
-			thumbNewWidth * thumbsPerRow +
-			thumbBorderWidthTotal * thumbsPerRow +
-			thumbHorizSep * (thumbsPerRow - 1) +
-			outerMarginTotal
-
-			(viewportInside.width - (thumbBorderWidthTotal * thumbsPerRow) - (thumbHorizSep * (thumbsPerRow - 1)) - (outerMarginTotal)) / thumbsPerRow =
-			thumbNewWidth
-
+				thumbNewWidth * thumbsPerRow +
+				thumbBorderWidthTotal * thumbsPerRow +
+				thumbHorizSep * (thumbsPerRow - 1) +
+				outerMarginTotal
 		 */
 
-		var thumbNewWidth = Math.floor(
-			(viewportInside.width
+		thumbWidthsByRowCount[thumbsPerRow] = Math.floor(
+			(SpeedReader.Viewport.MinWebArea.width
 				- (thumbBorderWidthTotal * thumbsPerRow)
 				- (thumbHorizSep * (thumbsPerRow - 1))
-				- (outerMarginTotal)
+				- (SpeedReader.Viewport.OuterMarginWidth * 2)
 				) / thumbsPerRow
 		);
-
-		thumbWidthsByRowCount[thumbsPerRow] = thumbNewWidth;
 	}
 
 	var selThumbsPerRow = 5; // Fixed at 5 rows for now
 
 	var thumbWidth = thumbWidthsByRowCount[selThumbsPerRow];
-	if (thumbWidth >= thumbSrcSize.width) thumbWidth = thumbSrcSize.width;
+	if (thumbWidth >= SpeedReader.Thumbnails.SourceSize.width) {
+		thumbWidth = SpeedReader.Thumbnails.SourceSize.width;
+	}
 
-	var thumbHeight = (thumbSrcSize.height / thumbSrcSize.width) * thumbWidth;
+	var thumbHeight = (
+		SpeedReader.Thumbnails.SourceSize.height
+		/ SpeedReader.Thumbnails.SourceSize.width
+	) * thumbWidth;
 
 	var $thumbnailLinks = $('a.thumbnail_link');
 
@@ -83,8 +102,11 @@ $(window).resize(function () {
 		width: thumbWidth + 'px',
 		height: thumbHeight + 'px',
 		margin: '0'
-	})
+	});
 
+
+	// Remove left margin on first thumbnails in each row (one for every
+	// thumbs-per-row)
 
 	var idxGroupOffset = 0;
 	$thumbnailLinks.each(function (idx) {
@@ -99,7 +121,7 @@ $(window).resize(function () {
 		if (idx % selThumbsPerRow != 0) {
 			$a.css('margin-left', thumbHorizSep + 'px');
 		}
-	})
+	});
 
 	$thumbnailLinks.children('img').each(function () {
 
@@ -112,6 +134,7 @@ $(window).resize(function () {
 			$a.css('opacity', '1');
 		});
 
+		// Trigger load event for cached images
 		if (this.complete) $img.trigger('load');
 
 	})
