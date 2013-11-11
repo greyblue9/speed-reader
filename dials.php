@@ -4,13 +4,37 @@ require_once('Colors.class.inc');
 require_once('Auth.class.inc');
 
 
-$speedDial2SyncUrl = 'http://speeddial2.com/sync2/get'
-	.'?username='.Auth::getUsername().
-	'&password='.base64_encode(Auth::getPassword()).
-	'&_='.time();
+$file = ''; // file data
+
+$cachedFile = file_exists('cache.dat')?
+	file_get_contents('cache.dat'): '';
+
+if ($cachedFile && !isset($_GET['nocache'])) {
+	$parts = explode("||", $cachedFile);
+	$cacheTime = $parts[0];
+	$cachePayload = $parts[1];
+	
+	if (time() - $cacheTime <= 60 * 5) {
+		$file = $cachePayload;
+	}
+}
+
+if (!$file) {
+	$speedDial2SyncUrl = 'http://speeddial2.com/sync2/get'
+		.'?username='.Auth::getUsername().
+		'&password='.base64_encode(Auth::getPassword()).
+		'&_='.time();
 
 
-$file = file_get_contents($speedDial2SyncUrl);
+	$file = file_get_contents($speedDial2SyncUrl);
+	
+	file_put_contents('cache.dat', time().'||'.$file);
+}
+
+
+
+
+
 $data = json_decode($file, true);
 
 $dials = $data['dials'];
@@ -68,7 +92,9 @@ foreach ($dials as $dial) {
 			display: inline-block;
 			position: relative;
 			text-decoration: none;
-			-moz-transition: border-color .75s ease;
+			transition: border-color .75s ease, transform .4s ease-out, opacity .4s ease-out;
+			transform: scale(0.8,0.8);
+			opacity: 0;
 		}
 
 		a.thumbnail_link > img {
@@ -284,6 +310,16 @@ foreach ($groups as $group) {
 			if (idx % selThumbsPerRow != 0) {
 				$a.css('margin-left', thumbHorizSep+'px');
 			}
+		})
+		
+		$('a.thumbnail_link > img').each(function() {
+			var $a = $(this).parents('a.thumbnail_link');
+			$(this).on('load', function() {
+				$a.css('transform', 'scale(1,1)');
+				$a.css('opacity', '1');
+			});
+			
+			if (this.complete) $(this).trigger('load');
 		})
 
 
