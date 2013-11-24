@@ -1,5 +1,7 @@
 <?php
 
+define('DEVELOPMENT_MODE', true);
+
 $cache_filepath = 'cache.dat';
 $cache_life = 60 * 5; // time to use cached data (seconds) - set to 5 minutes
 $filemtime = @filemtime($cache_filepath);  // returns FALSE if file does not exist
@@ -9,7 +11,7 @@ $cache_file_contents = null;
 $json_data = null;
 
 
-if (!$cache_expired) {
+if (!$cache_expired && !DEVELOPMENT_MODE) {
 
 	// Cache exists and is not yet expired
 
@@ -63,14 +65,21 @@ if (!$cache_expired) {
 		$cache_filepath
 	);
 
-	header('Last-Modified: '.gmdate('D, d M Y H:i:s', $time));
-	header('Cache-Control: max-age='.$cache_life.', private');
-	header('Expires: ' . gmdate('D, d M Y H:i:s', time() + $filemtime));
+	if (!DEVELOPMENT_MODE) {
+		header('Last-Modified: '.gmdate('D, d M Y H:i:s', $time));
+		header('Cache-Control: max-age='.$cache_life.', private');
+		header('Expires: ' . gmdate('D, d M Y H:i:s', time() + $filemtime));
+	}
 }
 
 
 
 $data = json_decode($json_data, true);
+	header('Content-Type: application/json');
+print($json_data);
+
+	exit();
+
 
 $dials = $data['dials'];
 $groups = $data['groups'];
