@@ -1,41 +1,76 @@
 <?php
 
-require_once('Colors.class.inc');
-require_once('Auth.class.inc');
+$cache_filepath = 'cache.dat';
+$cache_life = 60 * 5; // time to use cached data (seconds) - set to 5 minutes
+$filemtime = @filemtime($cache_filepath);  // returns FALSE if file does not exist
+$cache_expired = ($filemtime == false || time() - $filemtime >= $cache_life);
+
+$cache_file_contents = null;
+$json_data = null;
 
 
-$file = ''; // file data
+if (!$cache_expired) {
 
-$cachedFile = file_exists('cache.dat')?
-	file_get_contents('cache.dat'): '';
+	// Cache exists and is not yet expired
 
-if ($cachedFile && !isset($_GET['nocache'])) {
-	$parts = explode("||", $cachedFile);
-	$cacheTime = $parts[0];
-	$cachePayload = $parts[1];
-	
-	if (time() - $cacheTime <= 60 * 5) {
-		$file = $cachePayload;
+	if (isset($_SERVER['HTTP_IF_MODIFIED_SINCE']) && $filemtime &&
+		strtotime($_SERVER['HTTP_IF_MODIFIED_SINCE']) >= $filemtime)
+	{
+		header('HTTP/1.0 304 Not Modified');
+		header('Last-Modified: '.gmdate('D, d M Y H:i:s', $filemtime));
+		header('Cache-Control: max-age='.$cache_life.', private');
+		header('Expires: '.gmdate('D, d M Y H:i:s', time() + $filemtime));
+		exit();
 	}
+
+	$cache_file_contents = file_get_contents($cache_filepath);
+	$mod_time_sep_pos = strpos($cache_file_contents, '||', 0);
+	$json_data = substr($cache_file_contents, $mod_time_sep_pos + 2);
+
+} else {
+
+	// Cache does not exist or is out of date
+	// Update and rebuild saved cache
+
+	/**
+	 * @param $username SpeedDial2 username (plain)
+	 * @param $password SpeedDial2 password (plain)
+	 * @param $out_cachefilepath PHP-conventional (script-relative or absolute)
+	 *          path to use when saving cache file
+	 * @return string JSON data string from server
+	 */
+	function updateCacheDataFromServer($username, $password, $out_cachefilepath)
+	{
+		$time = time();
+		$speedDial2SyncUrl = 'http://speeddial2.com/sync2/get' .
+			'?username=' . urlencode($username) .
+			'&password=' . base64_encode($password) .
+			'&_=' . $time;
+		$response = file_get_contents($speedDial2SyncUrl);
+
+		// Save new formatted cache file with updated data from server
+		$new_cache_file_contents = $time.'||'.$response;
+		file_put_contents($out_cachefilepath, $new_cache_file_contents);
+		// Return new cache file contents
+		return $response;
+	}
+
+	require_once('Auth.class.inc');
+
+	$json_data = updateCacheDataFromServer(
+		Auth::getUsername(),
+		Auth::getPassword(),
+		$cache_filepath
+	);
+
+	header('Last-Modified: '.gmdate('D, d M Y H:i:s', $time));
+	header('Cache-Control: max-age='.$cache_life.', private');
+	header('Expires: ' . gmdate('D, d M Y H:i:s', time() + $filemtime));
 }
 
-if (!$file) {
-	$speedDial2SyncUrl = 'http://speeddial2.com/sync2/get'
-		.'?username='.Auth::getUsername().
-		'&password='.base64_encode(Auth::getPassword()).
-		'&_='.time();
 
 
-	$file = file_get_contents($speedDial2SyncUrl);
-	
-	file_put_contents('cache.dat', time().'||'.$file);
-}
-
-
-
-
-
-$data = json_decode($file, true);
+$data = json_decode($json_data, true);
 
 $dials = $data['dials'];
 $groups = $data['groups'];
@@ -87,6 +122,8 @@ foreach ($dials as $dial) {
 <?php
 
 $GroupsHTML = '';
+
+require_once('Colors.class.inc');
 
 
 foreach ($groups as $group) {
