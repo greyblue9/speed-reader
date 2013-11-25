@@ -1,5 +1,25 @@
 <?php
 
+set_time_limit(0);
+define('LOGFILE', 'export-for-tagmarks.log');
+define('OUTFILE', 'export-for-tagmarks.json');
+define('OVERWRITE_LOG', true);
+
+require_once('export-utils.php');
+
+
+if (!OVERWRITE_LOG && file_exists(LOGFILE)) {
+	$extDotPos = strrpos(LOGFILE,'.');
+	$logFileTitle = substr(LOGFILE, 0, $extDotPos);
+	$logFileExt = substr(LOGFILE, $extDotPos+1);
+	rename(LOGFILE, $logFileTitle.'-'.time().'.'.$logFileExt);
+}
+
+function logLine($line, $overwrite = false) {
+	file_put_contents(LOGFILE, $line."\n", $overwrite? 0: FILE_APPEND);
+}
+
+logLine('--- Export started ---', true);
 
 /**
  * @param $username SpeedDial2 username (plain)
@@ -20,18 +40,22 @@ function getSpeedDial2DataFromServer($username, $password)
 
 require_once('Auth.class.inc');
 
+logLine('Auth info for SpeedDial2: username=['.Auth::getUsername().'] password='.(Auth::getPassword()?'[*****]':'NONE'));
+
 $speeddial2_json_response = getSpeedDial2DataFromServer(
 	Auth::getUsername(),
 	Auth::getPassword()
 );
 
-
+logLine('Response from SpeedDial2 server: '.strlen($speeddial2_json_response).' byte(s)');
 
 $speeddial2_data = json_decode($speeddial2_json_response, true);
 
 $dials = $speeddial2_data['dials'];
 $groups = $speeddial2_data['groups'];
 
+logLine(count($dials).' dial(s)');
+logLine(count($groups).' group(s) not including home');
 
 $tags = array();
 
@@ -39,9 +63,11 @@ $tags = array();
 $groups[] = array(
 	'title' => 'Home',
 	'position' => 0,
-	'background_color' => '#ffffff',
+	'color' => 'ffffff',
 	'id' => 0
 );
+
+logLine('Added home group to SD2 data set');
 
 foreach ($groups as $group) {
 
@@ -67,10 +93,17 @@ function sortByPriority($a, $b)
 }
 usort($tags, 'sortByPriority');
 
+logLine('Created '.count($tags).' tags');
+
 
 $sites = array();
 
-foreach ($dials as $dial) {
+logLine('Creating sites...');
+
+$numDials = count($dials);
+foreach ($dials as $dialIdx => $dial) {
+
+	logLine('Creating site['.$dialIdx.'] ... ('.$dialIdx.'/'.$numDials.')');
 
 	$thumbnail_url = $dial['thumbnail'];
 	$size = getimagesize($thumbnail_url);
@@ -95,19 +128,28 @@ foreach ($dials as $dial) {
 		}
 	}
 
+	logLine('  -> ['.$site['name'].'] with thumbnail ('.$width.' x '.$height.')');
+
 	$sites[] = $site;
 }
 
-
+logLine('Created '.count($sites).' sites');
 
 $tagmarks_data =  array(
 	'tags' => $tags,
 	'sites' => $sites
 );
 
+logLine('Outputting finished result');
+
+$output_json = json_encode($tagmarks_data, JSON_NUMERIC_CHECK);
+$output_json_formatted = get_indented_json_string($output_json);
+
+file_put_contents(OUTFILE, $output_json_formatted);
+
 header('Content-Type: application/json');
-print(json_encode($tagmarks_data, JSON_NUMERIC_CHECK));
-exit;
+print($output_json_formatted);
+exit();
 
 
 

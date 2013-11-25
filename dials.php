@@ -1,6 +1,7 @@
 <?php
 
-define('DEVELOPMENT_MODE', true);
+define('DEVELOPMENT_MODE', false);
+
 
 $cache_filepath = 'cache.dat';
 $cache_life = 60 * 5; // time to use cached data (seconds) - set to 5 minutes
@@ -10,17 +11,18 @@ $cache_expired = ($filemtime == false || time() - $filemtime >= $cache_life);
 $cache_file_contents = null;
 $json_data = null;
 
+if (!DEVELOPMENT_MODE) {
+	header('Cache-Control: max-age='.$cache_life.', private');
+}
 
 if (!$cache_expired && !DEVELOPMENT_MODE) {
 
 	// Cache exists and is not yet expired
-
 	if (isset($_SERVER['HTTP_IF_MODIFIED_SINCE']) && $filemtime &&
 		strtotime($_SERVER['HTTP_IF_MODIFIED_SINCE']) >= $filemtime)
 	{
 		header('HTTP/1.0 304 Not Modified');
 		header('Last-Modified: '.gmdate('D, d M Y H:i:s', $filemtime));
-		header('Cache-Control: max-age='.$cache_life.', private');
 		header('Expires: '.gmdate('D, d M Y H:i:s', time() + $filemtime));
 		exit();
 	}
@@ -66,7 +68,7 @@ if (!$cache_expired && !DEVELOPMENT_MODE) {
 	);
 
 	if (!DEVELOPMENT_MODE) {
-		header('Last-Modified: '.gmdate('D, d M Y H:i:s', $time));
+		header('Last-Modified: '.gmdate('D, d M Y H:i:s', time()));
 		header('Cache-Control: max-age='.$cache_life.', private');
 		header('Expires: ' . gmdate('D, d M Y H:i:s', time() + $filemtime));
 	}
@@ -75,10 +77,6 @@ if (!$cache_expired && !DEVELOPMENT_MODE) {
 
 
 $data = json_decode($json_data, true);
-	header('Content-Type: application/json');
-print($json_data);
-
-	exit();
 
 
 $dials = $data['dials'];
@@ -134,6 +132,7 @@ $GroupsHTML = '';
 
 require_once('Colors.class.inc');
 
+$GroupsAndDialsHTML = '';
 
 foreach ($groups as $group) {
 
