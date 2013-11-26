@@ -71,9 +71,9 @@ logLine('Added home group to SD2 data set');
 
 foreach ($groups as $group) {
 
-	$alnum_tagname = preg_replace("/[^A-Za-z0-9] /", '', $group['title']);
-	$alnum_tagname = preg_replace("/\s/", '-', $group['title']);
-	$alnum_tagname = strtolower($alnum_tagname);
+	$tag_id_name = preg_replace("/[^A-Za-z0-9] /", '', $group['title']);
+	$tag_id_name = preg_replace("/\s/", '-', $group['title']);
+	$tag_id_name = strtolower($tag_id_name);
 
 	$tag = array(
 		'name' => $group['title'],
@@ -81,7 +81,7 @@ foreach ($groups as $group) {
 		'priority' => $group['position'],
 		'background_color' => '#'.strtolower($group['color']),
 		'_sd2_group_id' => $group['id'],
-		'_name_alnum' => $alnum_tagname
+		'id_name' => $tag_id_name
 	);
 
 	$tags[] = $tag;
@@ -124,7 +124,7 @@ foreach ($dials as $dialIdx => $dial) {
 
 	foreach ($tags as $tag) {
 		if ($tag['_sd2_group_id'] == $dial['idgroup']) {
-			array_push($site['tags'], $tag['_name_alnum']);
+			array_push($site['tags'], $tag['id_name']);
 		}
 	}
 
