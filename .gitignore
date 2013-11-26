@@ -2,3 +2,6 @@
 /SpeedDial2.sqlite
 /*.iml
 /cache.dat
+
+/export-for-tagmarks.json
+/export-for-tagmarks.log
